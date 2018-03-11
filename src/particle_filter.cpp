@@ -16,25 +16,26 @@
 #include <iterator>
 
 #include "particle_filter.h"
+#include "helper_functions.h"
 
 using namespace std;
 
 static default_random_engine gen;
 
-void ParticleFilter::init(double x, double y, double theta, double std[]) {
+void ParticleFilter::init(double x, double y, double theta, double sig[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
     
     num_particles = 100;
-    normal_distribution<double> dist_x(x, std[0]);
-    normal_distribution<double> dist_y(y, std[1]);
-    normal_distribution<double> dist_theta(theta, std[2]);
+    normal_distribution<double> dist_x(x, sig[0]);
+    normal_distribution<double> dist_y(y, sig[1]);
+    normal_distribution<double> dist_theta(theta, sig[2]);
 
     for(int i =0; i<=num_particles; i++)
     {
-     particle p;
+     Particle p;
      p.id = i;
      p.x = dist_x(gen);
      p.y = dist_y(gen);
@@ -51,16 +52,16 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
-    normal_distribution<double> dist_x(0, std[0]);
-    normal_distribution<double> dist_y(0, std[1]);
-    normal_distribution<double> dist_theta(0, std[2]);
+    normal_distribution<double> dist_x(0, std_pos[0]);
+    normal_distribution<double> dist_y(0, std_pos[1]);
+    normal_distribution<double> dist_theta(0, std_pos[2]);
     
     for(int i = 0; i<num_particles; i++)
     {
         if (yaw_rate < 0.0001)
         {
-         particle[i].x = velocity*delta_t*cos(particle[i].theta);
-         particle[i].y = velocity*delta_t*sin(particle[i].theta);
+         particles[i].x = velocity*delta_t*cos(particles[i].theta);
+         particles[i].y = velocity*delta_t*sin(particles[i].theta);
          }
         else
         {
@@ -70,9 +71,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
          particles[i].theta += yaw_rate * delta_t;
          }
         //noise
-        particle[i].x += dist_x(gen);
-        particle[i].y += dist_y(gen);
-        particle[i].theta += dist_theta(gen);
+        particles[i].x += dist_x(gen);
+        particles[i].y += dist_y(gen);
+        particles[i].theta += dist_theta(gen);
         
     }
         
@@ -90,7 +91,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
      int map_id = -1;
      for(int j = 0 ; j < predicted.size() ; j++)
      {
-      LandmarksObs pred = predicted[j];
+      LandmarkObs pred = predicted[j];
       double current_dist = dist(pred.x, pred.y, obs.x, obs.y);
       if(current_dist < min_dist)
       {
@@ -98,7 +99,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
        min_dist = current_dist;
        }
       }
-      observations[i] = map.id;
+      observations[i].id = map_id;
      }
 
 }
@@ -121,7 +122,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
      
      double p_x = particles[i].x;
      double p_y = particles[i].y;
-     double p_id = particles[i].theta;
+     double p_theta = particles[i].theta;
      
      vector<LandmarkObs> locations;
      
@@ -145,14 +146,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     {
       double t_x = cos(p_theta)*observations[j].x - sin(p_theta)*observations[j].y + p_x;
       double t_y = sin(p_theta)*observations[j].x + cos(p_theta)*observations[j].y + p_y;
-      transformed_obs.push_back(LandmarkObs{ observations[j].id, t_x, t_y });
+      transformed_obs.push_back(LandmarkObs( observations[j].id, t_x, t_y ));
     }
     
     
     //perform data assosciation
-    dataAssosciation(locations, transformed_obs);
+    dataAssociation(locations, transformed_obs);
     
-    partices[i].weight = 1.0;
+    particles[i].weight = 1.0;
     
      for (unsigned int j = 0; j < transformed_obs.size(); j++) 
      {
@@ -181,6 +182,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       // product of this obersvation weight with total observations weight
       particles[i].weight *= obs_w;
      }
+    }   
 }
 
 void ParticleFilter::resample() 
