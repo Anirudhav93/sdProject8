@@ -115,13 +115,111 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+    
+    for(int i = 0; i < num_particles ; i++)
+    {
+     
+     double p_x = particles[i].x;
+     double p_y = particles[i].y;
+     double p_id = particles[i].theta;
+     
+     vector<LandmarkObs> locations;
+     
+     for(int j = 0; j < map_landmarks.landmark_list.size();  j++)
+     {
+      float l_x = map_landmarks.landmark_list[j].x_f;
+      float l_y = map_landmarks.landmark_list[j].y_f;
+      int l_id = map_landmarks.landmark_list[j].id_i;
+      
+      
+      //check if landmark is within the particles sensor range
+      if(dist(p_x, p_y, l_x, l_y) <= sensor_range)
+      {
+       locations.push_back(LandmarkObs(l_id, l_x, l_y));
+       }
+      }
+      
+    vector<LandmarkObs> transformed_obs;
+    
+    for (unsigned int j = 0; j < observations.size(); j++) 
+    {
+      double t_x = cos(p_theta)*observations[j].x - sin(p_theta)*observations[j].y + p_x;
+      double t_y = sin(p_theta)*observations[j].x + cos(p_theta)*observations[j].y + p_y;
+      transformed_obs.push_back(LandmarkObs{ observations[j].id, t_x, t_y });
+    }
+    
+    
+    //perform data assosciation
+    dataAssosciation(locations, transformed_obs);
+    
+    partices[i].weight = 1.0;
+    
+     for (unsigned int j = 0; j < transformed_obs.size(); j++) 
+     {
+      
+      // placeholders for observation and associated prediction coordinates
+      double o_x, o_y, pr_x, pr_y;
+      o_x = transformed_obs[j].x;
+      o_y = transformed_obs[j].y;
+
+      int associated_prediction = transformed_obs[j].id;
+
+      // get the x,y coordinates of the prediction associated with the current observation
+      for (unsigned int k = 0; k < locations.size(); k++) 
+      {
+        if (locations[k].id == associated_prediction) 
+        {
+          pr_x = locations[k].x;
+          pr_y = locations[k].y;
+        }
+      }
+        
+      double s_x = std_landmark[0];
+      double s_y = std_landmark[1];
+      double obs_w = ( 1/(2*M_PI*s_x*s_y)) * exp( -( pow(pr_x-o_x,2)/(2*pow(s_x, 2)) + (pow(pr_y-o_y,2)/(2*pow(s_y, 2))) ) );
+
+      // product of this obersvation weight with total observations weight
+      particles[i].weight *= obs_w;
+     }
 }
 
-void ParticleFilter::resample() {
+void ParticleFilter::resample() 
+{
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+    vector<Particle> new_particles;
 
+  // get all of the current weights
+  vector<double> weights;
+  for (int i = 0; i < num_particles; i++)
+  {
+    weights.push_back(particles[i].weight);
+  }
+
+  // generate random starting index for resampling wheel
+  uniform_int_distribution<int> uniintdist(0, num_particles-1);
+  auto index = uniintdist(gen);
+
+  // get max weight
+  double max_weight = *max_element(weights.begin(), weights.end());
+
+  // uniform random distribution [0.0, max_weight)
+  uniform_real_distribution<double> unirealdist(0.0, max_weight);
+
+  double beta = 0.0;
+
+  // spin the resample wheel!
+  for (int i = 0; i < num_particles; i++) {
+    beta += unirealdist(gen) * 2.0;
+    while (beta > weights[index]) {
+      beta -= weights[index];
+      index = (index + 1) % num_particles;
+    }
+    new_particles.push_back(particles[index]);
+  }
+
+  particles = new_particles;
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
