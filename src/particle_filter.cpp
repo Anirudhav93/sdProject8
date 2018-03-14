@@ -60,8 +60,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     {
         if (fabs(yaw_rate) < 0.0001)
         {
-         particles[i].x = velocity*delta_t*cos(particles[i].theta);
-         particles[i].y = velocity*delta_t*sin(particles[i].theta);
+         particles[i].x += velocity*delta_t*cos(particles[i].theta);
+         particles[i].y += velocity*delta_t*sin(particles[i].theta);
          }
         else
         {
