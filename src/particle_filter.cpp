@@ -58,7 +58,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     
     for(int i = 0; i<num_particles; i++)
     {
-        if (yaw_rate < 0.0001)
+        if (fabs(yaw_rate) < 0.0001)
         {
          particles[i].x = velocity*delta_t*cos(particles[i].theta);
          particles[i].y = velocity*delta_t*sin(particles[i].theta);
@@ -142,7 +142,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       
     vector<LandmarkObs> transformed_obs;
     
-    for (unsigned int j = 0; j < observations.size(); j++) 
+    for ( int j = 0; j < observations.size(); j++) 
     {
       double t_x = cos(p_theta)*observations[j].x - sin(p_theta)*observations[j].y + p_x;
       double t_y = sin(p_theta)*observations[j].x + cos(p_theta)*observations[j].y + p_y;
@@ -155,7 +155,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     
     particles[i].weight = 1.0;
     
-     for (unsigned int j = 0; j < transformed_obs.size(); j++) 
+     for ( int j = 0; j < transformed_obs.size(); j++) 
      {
       
       // placeholders for observation and associated prediction coordinates
@@ -182,7 +182,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       // product of this obersvation weight with total observations weight
       particles[i].weight *= obs_w;
      }
-    }   
+    }  
 }
 
 void ParticleFilter::resample() 
